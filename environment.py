@@ -54,12 +54,14 @@ class Environment():
         # Enabling GPU functionality if available
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            print(f'CUDA availble. On device/s:')
+            print(f'CUDA available. Running on device/s:')
             for core in range(torch.cuda.device_count()):
                 print(f'{torch.cuda.get_device_name(core)}')
         else:
             self.device = torch.device('cpu')
-            print('CUDA unavailable. Switing to CPU instead.')
+            print('CUDA unavailable. Switing to CPU instead. Running on device/s:')
+            for core in range(torch.cpu.device_count()):
+                print(f'{torch.cpu.get_device_name(core)}')
 
         # Generating the net and the game to be played
         self.net = LinearQNet(input_size, hidden_shape, output_size, self.device)
