@@ -16,5 +16,5 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     env = Environment(args.model_name, args.input_size, args.hidden_shape, args.output_size, args.epochs,
-                      args.batch_size, args.learning_rate, args.discount_rate, args.epsiolon_decay_rate)
+                      args.batch_size, args.learning_rate, args.discount_rate, args.epsilon_decay_rate)
     env.run_training()
