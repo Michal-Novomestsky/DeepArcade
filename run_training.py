@@ -6,7 +6,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model_name', type=str, help='Name of the .pth once the model trains.')
     parser.add_argument('input_size', type=int, help='Dimension of the input tensor.')
-    parser.add_argument('hidden_shape', type=list, help='List of ints specifying the hidden layer neuron counts.')
+    parser.add_argument('hidden_shape', nargs='+' type=int, help='List of ints specifying the hidden layer neuron counts.')
     parser.add_argument('output_size', type=int, help='Dimension of the output tensor.')
     parser.add_argument('epochs', type=int, default=100, help='Amount of games to play before training ends.')
     parser.add_argument('batch_size', type=int, default=1000, help='Amount of training states to run backprop on at a time.')
