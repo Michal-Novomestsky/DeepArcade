@@ -2,15 +2,16 @@ import pygame
 import random
 import os
 import numpy as np
-import torch
 
 from enum import Enum
 from collections import namedtuple
-pygame.init()
 
+pygame.init()
 font = pygame.font.Font(os.path.join('Resources','arial.ttf'), 25)
 #os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
+# SOURCE: https://github.com/vedantgoswami/SnakeGameAI
+# MINOR ADJUSTMENTS MADE, BUT LARGELY LEFT AS-IS.
 
 class Direction(Enum):
     RIGHT = 1
@@ -61,7 +62,9 @@ class SnakeGame:
         if self.food in self.snake:
             self._place__food()
 
-    def get_input(self, action) -> None:
+    # Action is left in as a dummy variable to allow for easy compatibility with the 
+    # SnakeGameAI child class
+    def get_input(self, action=None) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
