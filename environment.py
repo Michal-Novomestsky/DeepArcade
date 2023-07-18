@@ -159,6 +159,8 @@ class Environment():
         return_log = []
         epochs = range(self.epochs)
 
+        print("Training started.")
+
         t0 = time.perf_counter()
         for epoch in epochs:
             # The model plays a game
@@ -176,7 +178,6 @@ class Environment():
 
             # Logging and resetting for a new epoch
             scores.append(self.game.score)
-            print(f"Epoch: {epoch}, Score: {self.game.score}")
             return_log.append(self.game.score)
             epsilon_log.append(self.epsilon)
             self.epsilon *= self.epsilon_decay_rate # Updating epsilon
