@@ -61,7 +61,7 @@ class SnakeGame:
         if self.food in self.snake:
             self._place__food()
 
-    def get_input(self) -> None:
+    def get_input(self, action) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -75,9 +75,12 @@ class SnakeGame:
                 elif event.key == pygame.K_DOWN:
                     self.direction = Direction.DOWN
 
-    def play_step(self) -> tuple:
+    def play_step(self, action=None) -> tuple:
+        # +1 for food, -1 for collision, else 0
+        reward = 0
+
         # 1. Collect the user input
-        self.get_input()
+        self.get_input(action)
 
         # 2. Move
         self._move(self.direction)
@@ -86,11 +89,13 @@ class SnakeGame:
         # 3. Check if game Over
         game_over = False 
         if self._is_collision():
+            reward = -1
             game_over=True
-            return game_over,self.score
+            return game_over,self.score, reward
         # 4. Place new Food or just move
         if self.head == self.food:
             self.score+=1
+            reward = 1
             self._place__food()
         else:
             self.snake.pop()
@@ -100,7 +105,7 @@ class SnakeGame:
             self.clock.tick(self.fps)
         # 6. Return game Over and Display Score
         
-        return game_over,self.score
+        return game_over, self.score, reward
 
     def _update_ui(self) -> None:
         self.display.fill(BLACK)
@@ -125,18 +130,20 @@ class SnakeGame:
             y-=BLOCK_SIZE
         self.head = Point(x,y)
 
-    def _is_collision(self) -> bool:
-        # hit boundary
-        if self.head.x>self.w-BLOCK_SIZE or self.head.x<0 or self.head.y>self.h - BLOCK_SIZE or self.head.y<0:
+    def _is_collision(self,pt=None):
+        if(pt is None):
+            pt = self.head
+        #hit boundary
+        if(pt.x>self.w-BLOCK_SIZE or pt.x<0 or pt.y>self.h - BLOCK_SIZE or pt.y<0):
             return True
-        if self.head in self.snake[1:]:
+        if(pt in self.snake[1:]):
             return True
         return False
     
     def run(self) -> None:
         game_over = False
         while not game_over:
-            game_over, score = self.play_step()
+            game_over, score, _ = self.play_step()
 
         print('Final Score',score)
         pygame.quit()
@@ -177,22 +184,22 @@ class SnakeGameAI(SnakeGame):
 
         state = [
             # Danger Straight
-            (dir_u and self.is_collision(point_u))or
-            (dir_d and self.is_collision(point_d))or
-            (dir_l and self.is_collision(point_l))or
-            (dir_r and self.is_collision(point_r)),
+            (dir_u and self._is_collision(point_u))or
+            (dir_d and self._is_collision(point_d))or
+            (dir_l and self._is_collision(point_l))or
+            (dir_r and self._is_collision(point_r)),
 
             # Danger right
-            (dir_u and self.is_collision(point_r))or
-            (dir_d and self.is_collision(point_l))or
-            (dir_u and self.is_collision(point_u))or
-            (dir_d and self.is_collision(point_d)),
+            (dir_u and self._is_collision(point_r))or
+            (dir_d and self._is_collision(point_l))or
+            (dir_u and self._is_collision(point_u))or
+            (dir_d and self._is_collision(point_d)),
 
             # Danger Left
-            (dir_u and self.is_collision(point_r))or
-            (dir_d and self.is_collision(point_l))or
-            (dir_r and self.is_collision(point_u))or
-            (dir_l and self.is_collision(point_d)),
+            (dir_u and self._is_collision(point_r))or
+            (dir_d and self._is_collision(point_l))or
+            (dir_r and self._is_collision(point_u))or
+            (dir_l and self._is_collision(point_d)),
 
             # Move Direction
             dir_l,
@@ -207,16 +214,7 @@ class SnakeGameAI(SnakeGame):
             self.food.y > self.head.y # food is down
         ]
             
-        return torch.tensor(state, dtype=torch.float)
-
-    def run(self) -> None:
-        game_over = False
-        while not game_over:
-            game_over, score = self.play_step()
-
-        print('Final Score',score)
-        pygame.quit()
-
+        return np.array(state, dtype=np.float64)
 
 if __name__=="__main__":
     game = SnakeGame()
