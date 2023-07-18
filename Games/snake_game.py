@@ -134,10 +134,10 @@ class SnakeGame:
         return False
     
     def run(self) -> None:
-        while True:
+        game_over = False
+        while not game_over:
             game_over, score = self.play_step()
-            if game_over:
-                break
+
         print('Final Score',score)
         pygame.quit()
 
@@ -201,14 +201,21 @@ class SnakeGameAI(SnakeGame):
             dir_d,
 
             # Food Location
-            self.food.x < self.head.x, # food is in left
-            self.food.x > self.head.x, # food is in right
+            self.food.x < self.head.x, # food is to the left
+            self.food.x > self.head.x, # food is to the right
             self.food.y < self.head.y, # food is up
             self.food.y > self.head.y # food is down
         ]
             
         return torch.tensor(state, dtype=torch.float)
 
+    def run(self) -> None:
+        game_over = False
+        while not game_over:
+            game_over, score = self.play_step()
+
+        print('Final Score',score)
+        pygame.quit()
 
 
 if __name__=="__main__":

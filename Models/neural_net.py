@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from pathlib import Path
-
 class LinearQNet(nn.Module):
     '''
     A deep linear Q-net which can generate nets of arbitrary shape.
