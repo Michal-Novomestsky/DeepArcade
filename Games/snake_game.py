@@ -89,13 +89,13 @@ class SnakeGame:
         # 3. Check if game Over
         game_over = False 
         if self._is_collision():
-            reward = -1
+            reward = -10
             game_over=True
             return game_over,self.score, reward
         # 4. Place new Food or just move
         if self.head == self.food:
             self.score+=1
-            reward = 1
+            reward = 10
             self._place__food()
         else:
             self.snake.pop()
@@ -184,21 +184,21 @@ class SnakeGameAI(SnakeGame):
 
         state = [
             # Danger Straight
-            (dir_u and self._is_collision(point_u))or
-            (dir_d and self._is_collision(point_d))or
-            (dir_l and self._is_collision(point_l))or
+            (dir_u and self._is_collision(point_u)) or
+            (dir_d and self._is_collision(point_d)) or
+            (dir_l and self._is_collision(point_l)) or
             (dir_r and self._is_collision(point_r)),
 
             # Danger right
-            (dir_u and self._is_collision(point_r))or
-            (dir_d and self._is_collision(point_l))or
-            (dir_u and self._is_collision(point_u))or
+            (dir_u and self._is_collision(point_r)) or
+            (dir_d and self._is_collision(point_l)) or
+            (dir_u and self._is_collision(point_u)) or
             (dir_d and self._is_collision(point_d)),
 
             # Danger Left
-            (dir_u and self._is_collision(point_r))or
-            (dir_d and self._is_collision(point_l))or
-            (dir_r and self._is_collision(point_u))or
+            (dir_u and self._is_collision(point_r)) or
+            (dir_d and self._is_collision(point_l)) or
+            (dir_r and self._is_collision(point_u)) or
             (dir_l and self._is_collision(point_d)),
 
             # Move Direction

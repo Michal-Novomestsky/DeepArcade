@@ -3,42 +3,50 @@ import torch.nn as nn
 import torch.optim as optim
 import random
 import numpy as np
+import os
 
 from Models.neural_net import *
 from Games.snake_game import SnakeGameAI
-from collections import deque
+from matplotlib import pyplot as plt
 
 class Environment():
-    def __init__(self, input_size: int, hidden_size: list, output_size: int, batch_size=1000, 
-                 learning_rate=0.001, discount_rate=0.9, epsilon_decay_rate=0.98,
-                  fps=20, show_gui=False) -> None:
+    def __init__(self, model_name=None, input_size=11, hidden_size=[250], output_size=3, epochs=100,
+                 batch_size=1000, learning_rate=0.001, discount_rate=0.9, epsilon_decay_rate=0.98,
+                  fps=20, show_gui=False, loaded_model=False) -> None:
         '''
         Environment for the neural net to interact with the game and train itself.
 
-        :param input_size: (int) Amount of input parameters the net accepts
+        :param model_name: (str) Name for the .pth file
+        :param input_size: (int) Amount of input parameters the net accepts.
         :param hidden_size: (list[int]) The ith element describes the amount of neurons the ith hidden layer contains.
         :param output_size: (int) Amount of output parameters returned.
+        :param epochs: (int) Amount of games to play.
         :param batch_size: (int) Amount of states to use for training after a game completes.
         :param learning_rate: (float) How steeply gradient descent acts.
         :param discount_rate: (float) How much to value future steps (needed for sum convergence).
         :param epsilon_decay_rate: (float) epsilon = epsilon*(eps_decay_rate^N), where N is the amount of games played.
         :param fps: (int) GUI framerate.
         :param show_gui: (bool) If True, shows the GUI. Set to False to train quickly.
+        :param loaded_model: (bool) If True, use a pre-trained model rather than actively training one now.
         '''
         if discount_rate <= 0 or discount_rate > 1:
-            raise ValueError('discount_rate must be within (0,1]')
+            raise ValueError('discount_rate must be within (0,1].')
         if epsilon_decay_rate <= 0 or epsilon_decay_rate > 1:
-            raise ValueError('epsilon_decay_rate must be within (0,1]')
+            raise ValueError('epsilon_decay_rate must be within (0,1].')
+        if model_name is None and not loaded_model:
+            raise ValueError("If a pretrained model isn't being loaded, a name must be specified.")
 
         # Defining parameters
-        self.games_played = 0
+        self.model_name = model_name
+        self.loaded_model = loaded_model
+        self.epochs = epochs
         self.batch_size = batch_size
         self.output_size = output_size
         self.discount_rate = discount_rate
         self.epsilon = 1
         self.epsilon_decay_rate = epsilon_decay_rate
 
-        self.memory = deque()
+        self.memory = []
 
         # Generating the net and the game to be played
         self.net = LinearQNet(input_size, hidden_size, output_size)
@@ -49,13 +57,13 @@ class Environment():
         self.loss_function = nn.MSELoss()
 
     def train_step(self, states, actions, next_states, rewards, game_overs):
-        states = torch.tensor(states, dtype=torch.float)
-        actions = torch.tensor(actions, dtype=torch.float)
-        next_states = torch.tensor(next_states, dtype=torch.float)
-        rewards = torch.tensor(rewards, dtype=torch.float)
+        states = torch.tensor(np.array(states), dtype=torch.float)
+        actions = torch.tensor(np.array(actions), dtype=torch.float)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float)
+        rewards = torch.tensor(np.array(rewards), dtype=torch.float)
 
-        if len(states.shape) == 1: # only one parameter to train , Hence convert to tuple of shape (1, x)
-            #(1 , x)
+        # If there's only one parameter (i.e. short term memory), we need to turn it into a tuple/unsqueezed tensor to retain the required shape
+        if len(states.shape) == 1:
             states = torch.unsqueeze(states,0)
             next_states = torch.unsqueeze(next_states,0)
             actions = torch.unsqueeze(actions,0)
@@ -93,14 +101,15 @@ class Environment():
         '''
         action = np.zeros(self.output_size, dtype=np.float64)
 
-        # With probability epsilon, we take a random action (i.e. pick a random index in the action vector)
-        if random.random() <= self.epsilon:
-            idx = random.randint(0, self.output_size - 1)
-            action[idx] = 1
-        # Otherwise use the net for a move
-        else:
+        # With probability 1 - epsilon, we use the net for a move
+        if self.loaded_model or random.random() <= 1 - self.epsilon:
             prediction = self.net(torch.tensor(state, dtype=torch.float))
             idx = torch.argmax(prediction).item()
+            action[idx] = 1
+            
+        # Otherwise, we take a random action (i.e. pick a random index in the action vector)
+        else:
+            idx = random.randint(0, self.output_size - 1)
             action[idx] = 1
 
         return action
@@ -112,17 +121,12 @@ class Environment():
             random_sample = self.memory
         
         states, actions, next_states, rewards, game_overs = zip(*random_sample)
-        # self.train_step(torch.tensor(states, dtype=torch.float), torch.tensor(actions, dtype=torch.float),
-        #                 torch.tensor(next_states, dtype=torch.float), torch.tensor(rewards, dtype=torch.float),
-        #                 game_overs)
-        self.train_step(states, actions, next_states, rewards ,game_overs)
+        self.train_step(states, actions, next_states, rewards, game_overs)
 
-
-    def logger(self):
-        raise NotImplementedError
-
-    def run_training(self, epochs=1000):
-        for _ in range(epochs):
+    def run_training(self):
+        scores = []
+        epochs = range(self.epochs)
+        for epoch in epochs:
             # The net plays a game
             game_over = False
             while not game_over:
@@ -131,23 +135,37 @@ class Environment():
                 game_over, _, reward = self.game.play_step(action)
                 next_state = self.game.get_state()
 
+                # Training on a single timestep
                 self.train_step(state, action, next_state, reward, game_over)
 
                 self.memory.append((state, action, next_state, reward, game_over))
 
-            # When a game ends, train the net
-            total_score = self.game.score
+            # When a game ends, train the net on the entire available dataset (all prior games).
+            scores.append(self.game.score)
+            print(f"Epoch: {epoch}, Score: {self.game.score}")
             self.game.reset()
-            self.games_played += 1
-            self.epsilon *= self.epsilon_decay_rate
+            self.epsilon *= self.epsilon_decay_rate # Updating epsilon
             self.train_batch()
-            print(f"Score: {total_score}")
+
+        save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
+        torch.save(self.net.state_dict(), save_path)
+        print(f"Trained model {self.model_name} and saved to PATH: {save_path}")
+
+    def play_trained_model(self, model_path: os.PathLike):
+        self.net.load_state_dict(torch.load(model_path))
+
+        game_over = False
+        while not game_over:
+            state = self.game.get_state()
+            action = self.get_action(state)
+            game_over, _, _ = self.game.play_step(action)
+            
 
 if __name__=="__main__":
-    env = Environment(input_size=11, hidden_size=[250], output_size=3,
-                      batch_size=1000, learning_rate=0.001, discount_rate=0.9,
-                      epsilon_decay_rate=0.98, fps=100, show_gui=True)
-    
-    env.run_training()
+    # env = Environment(model_name="Mark", input_size=11, hidden_size=[250], output_size=3, epochs=200,
+    #                   batch_size=1000, learning_rate=0.002, discount_rate=0.9,
+    #                   epsilon_decay_rate=0.98)
+    # env.run_training()
 
-
+    env_trained = Environment(fps=20, show_gui=True, loaded_model=True)
+    env_trained.play_trained_model(os.path.join("Outputs", "Trained Models", "Mark.pth"))
