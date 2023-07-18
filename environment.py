@@ -7,7 +7,6 @@ import os
 
 from Models.neural_net import *
 from Games.snake_game import SnakeGameAI
-from matplotlib import pyplot as plt
 
 class Environment():
     def __init__(self, model_name=None, input_size=11, hidden_size=[250], output_size=3, epochs=100,
@@ -57,6 +56,15 @@ class Environment():
         self.loss_function = nn.MSELoss()
 
     def train_step(self, states, actions, next_states, rewards, game_overs):
+        '''
+        Run backpropagation on a batch of arbitrary size.
+
+        :param states: (arrayLike) An array of states (arbitrary and depends on game).
+        :param actions: (arrayLike) An array of actions to take given the state.
+        :param next_states: (arrayLike) An array of subsequent states after action is taken.
+        :param rewards: (arrayLike) An array of rewards for the actions taken.
+        :param game_overs: (arrayLike) An array of game over flags (True if the game has ended in next_state).
+        '''
         states = torch.tensor(np.array(states), dtype=torch.float)
         actions = torch.tensor(np.array(actions), dtype=torch.float)
         next_states = torch.tensor(np.array(next_states), dtype=torch.float)
@@ -96,8 +104,8 @@ class Environment():
         Pr(random move) = epsilon,
         Pr(max(Q)) = 1 - epsilon,
 
-        :param state: (torch.tensor) A tensor describing the gamestate. Arbitrary and depends on the game played.
-        :return: (torch.tensor) The action the agent takes (game-dependent).
+        :param state: (np.ndarray) A numpy array describing the gamestate. Arbitrary and depends on the game played.
+        :return: (np.ndarray) The action the agent takes (game-dependent).
         '''
         action = np.zeros(self.output_size, dtype=np.float64)
 
@@ -114,7 +122,10 @@ class Environment():
 
         return action
     
-    def train_batch(self):
+    def train_batch(self) -> None:
+        '''
+        Train on a random sample of data of size self.batch_size across all played games.
+        '''
         if len(self.memory) > self.batch_size:
             random_sample = random.sample(self.memory, self.batch_size)
         else:
@@ -124,10 +135,13 @@ class Environment():
         self.train_step(states, actions, next_states, rewards, game_overs)
 
     def run_training(self):
+        '''
+        Trains the net using the parameters set.
+        '''
         scores = []
         epochs = range(self.epochs)
         for epoch in epochs:
-            # The net plays a game
+            # The model plays a game
             game_over = False
             while not game_over:
                 state = self.game.get_state()
@@ -140,32 +154,39 @@ class Environment():
 
                 self.memory.append((state, action, next_state, reward, game_over))
 
-            # When a game ends, train the net on the entire available dataset (all prior games).
             scores.append(self.game.score)
             print(f"Epoch: {epoch}, Score: {self.game.score}")
             self.game.reset()
             self.epsilon *= self.epsilon_decay_rate # Updating epsilon
-            self.train_batch()
+            self.train_batch() # When a game ends, train the net on a subset of all available data (all prior games).
 
         save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
         torch.save(self.net.state_dict(), save_path)
         print(f"Trained model {self.model_name} and saved to PATH: {save_path}")
 
-    def play_trained_model(self, model_path: os.PathLike):
+    def play_trained_model(self, model_path: os.PathLike) -> None:
+        '''
+        Run a game with a pretrained model.
+
+        :param model_path: (os.PathLike) Path to the trained model.
+        '''
         self.net.load_state_dict(torch.load(model_path))
+        self.net.eval()
 
         game_over = False
         while not game_over:
             state = self.game.get_state()
             action = self.get_action(state)
             game_over, _, _ = self.game.play_step(action)
-            
 
+        print(f'Final Score: {self.game.score}')
+            
 if __name__=="__main__":
+    ### Train a model ###
     # env = Environment(model_name="Mark", input_size=11, hidden_size=[250], output_size=3, epochs=200,
-    #                   batch_size=1000, learning_rate=0.002, discount_rate=0.9,
-    #                   epsilon_decay_rate=0.98)
+    #                   batch_size=1000, learning_rate=0.002, discount_rate=0.9, epsilon_decay_rate=0.98)
     # env.run_training()
 
+    ### Run a trained model ###
     env_trained = Environment(fps=20, show_gui=True, loaded_model=True)
     env_trained.play_trained_model(os.path.join("Outputs", "Trained Models", "Mark.pth"))

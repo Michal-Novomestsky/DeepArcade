@@ -28,7 +28,7 @@ BLUE2 = (0,100,255)
 BLACK = (0,0,0)
 
 class SnakeGame:
-    def __init__(self,w=640,h=480, fps=15, show_gui=True) -> None:
+    def __init__(self, w=640, h=480, fps=15, show_gui=True) -> None:
         self.w=w
         self.h=h
         self.fps = fps
@@ -145,7 +145,7 @@ class SnakeGame:
         while not game_over:
             game_over, score, _ = self.play_step()
 
-        print('Final Score',score)
+        print(f'Final Score: {score}')
         pygame.quit()
 
 class SnakeGameAI(SnakeGame):
