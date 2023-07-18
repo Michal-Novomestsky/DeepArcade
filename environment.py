@@ -51,8 +51,18 @@ class Environment():
 
         self.memory = []
 
+        # Enabling GPU functionality if available
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+            print(f'CUDA availble. On device/s:')
+            for core in range(torch.cuda.device_count()):
+                print(f'{torch.cuda.get_device_name(core)}')
+        else:
+            self.device = torch.device('cpu')
+            print('CUDA unavailable. Switing to CPU instead.')
+
         # Generating the net and the game to be played
-        self.net = LinearQNet(input_size, hidden_shape, output_size)
+        self.net = LinearQNet(input_size, hidden_shape, output_size, self.device)
         self.game = SnakeGameAI(fps=fps, show_gui=show_gui)
 
         # Using the Adam optimiser with a mean-squared error loss function.
@@ -69,17 +79,17 @@ class Environment():
         :param rewards: (arrayLike) An array of rewards for the actions taken.
         :param game_overs: (arrayLike) An array of game over flags (True if the game has ended in next_state).
         '''
-        states = torch.tensor(np.array(states), dtype=torch.float)
-        actions = torch.tensor(np.array(actions), dtype=torch.float)
-        next_states = torch.tensor(np.array(next_states), dtype=torch.float)
-        rewards = torch.tensor(np.array(rewards), dtype=torch.float)
+        states = torch.tensor(np.array(states), dtype=torch.float).to(self.device)
+        actions = torch.tensor(np.array(actions), dtype=torch.float).to(self.device)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float).to(self.device)
+        rewards = torch.tensor(np.array(rewards), dtype=torch.float).to(self.device)
 
         # If there's only one parameter (i.e. short term memory), we need to turn it into a tuple/unsqueezed tensor to retain the required shape
         if len(states.shape) == 1:
-            states = torch.unsqueeze(states,0)
-            next_states = torch.unsqueeze(next_states,0)
-            actions = torch.unsqueeze(actions,0)
-            rewards = torch.unsqueeze(rewards,0)
+            states = torch.unsqueeze(states,0).to(self.device)
+            next_states = torch.unsqueeze(next_states,0).to(self.device)
+            actions = torch.unsqueeze(actions,0).to(self.device)
+            rewards = torch.unsqueeze(rewards,0).to(self.device)
             game_overs = (game_overs, )
 
         prediction = self.net(states)
@@ -115,7 +125,7 @@ class Environment():
 
         # With probability 1 - epsilon, we use the net for a move
         if self.loaded_model or random.random() <= 1 - self.epsilon:
-            prediction = self.net(torch.tensor(state, dtype=torch.float))
+            prediction = self.net(torch.tensor(state, dtype=torch.float).to(self.device))
             idx = torch.argmax(prediction).item()
             action[idx] = 1
             
