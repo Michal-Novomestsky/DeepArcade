@@ -8,11 +8,11 @@ if __name__=='__main__':
     parser.add_argument('input_size', type=int, help='Dimension of the input tensor.')
     parser.add_argument('hidden_shape', nargs='+', type=int, help='List of ints specifying the hidden layer neuron counts.')
     parser.add_argument('output_size', type=int, help='Dimension of the output tensor.')
-    parser.add_argument('epochs', type=int, default=100, help='Amount of games to play before training ends.', required=False)
-    parser.add_argument('batch_size', type=int, default=1000, help='Amount of training states to run backprop on at a time.', required=False)
-    parser.add_argument('learning_rate', type=float, default=0.001, help='Rate of gradient descent.', required=False)
-    parser.add_argument('discount_rate', type=float, default=0.9, help='Extent to which future states should be valued (mainly just a trick to let the return sum converge)', required=False)
-    parser.add_argument('epsilon_decay_rate', type=float, default=0.98, help='epsilon(N) = epsilon(0)*(decay_rate^N), where N is the amount of completed epochs/games.', required=False)
+    parser.add_argument('epochs', type=int, default=100, help='Amount of games to play before training ends.')
+    parser.add_argument('batch_size', type=int, default=1000, help='Amount of training states to run backprop on at a time.')
+    parser.add_argument('learning_rate', type=float, default=0.001, help='Rate of gradient descent.')
+    parser.add_argument('discount_rate', type=float, default=0.9, help='Extent to which future states should be valued (mainly just a trick to let the return sum converge)')
+    parser.add_argument('epsilon_decay_rate', type=float, default=0.98, help='epsilon(N) = epsilon(0)*(decay_rate^N), where N is the amount of completed epochs/games.')
     args = parser.parse_args()
 
     env = Environment(args.model_name, args.input_size, args.hidden_shape, args.output_size, args.epochs,
