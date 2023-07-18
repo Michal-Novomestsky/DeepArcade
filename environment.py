@@ -4,12 +4,14 @@ import torch.optim as optim
 import random
 import numpy as np
 import os
+import pandas as pd
+import seaborn as sns
 
 from Models.neural_net import *
 from Games.snake_game import SnakeGameAI
 
 class Environment():
-    def __init__(self, model_name=None, input_size=11, hidden_size=[250], output_size=3, epochs=100,
+    def __init__(self, model_name=None, input_size=11, hidden_shape=[250], output_size=3, epochs=100,
                  batch_size=1000, learning_rate=0.001, discount_rate=0.9, epsilon_decay_rate=0.98,
                   fps=20, show_gui=False, loaded_model=False) -> None:
         '''
@@ -17,7 +19,7 @@ class Environment():
 
         :param model_name: (str) Name for the .pth file
         :param input_size: (int) Amount of input parameters the net accepts.
-        :param hidden_size: (list[int]) The ith element describes the amount of neurons the ith hidden layer contains.
+        :param hidden_shape: (list[int]) The ith element describes the amount of neurons the ith hidden layer contains.
         :param output_size: (int) Amount of output parameters returned.
         :param epochs: (int) Amount of games to play.
         :param batch_size: (int) Amount of states to use for training after a game completes.
@@ -40,7 +42,9 @@ class Environment():
         self.loaded_model = loaded_model
         self.epochs = epochs
         self.batch_size = batch_size
+        self.hidden_shape = hidden_shape
         self.output_size = output_size
+        self.learning_rate = learning_rate
         self.discount_rate = discount_rate
         self.epsilon = 1
         self.epsilon_decay_rate = epsilon_decay_rate
@@ -48,11 +52,11 @@ class Environment():
         self.memory = []
 
         # Generating the net and the game to be played
-        self.net = LinearQNet(input_size, hidden_size, output_size)
+        self.net = LinearQNet(input_size, hidden_shape, output_size)
         self.game = SnakeGameAI(fps=fps, show_gui=show_gui)
 
         # Using the Adam optimiser with a mean-squared error loss function.
-        self.optimiser = optim.Adam(self.net.parameters(), lr=learning_rate)
+        self.optimiser = optim.Adam(self.net.parameters(), lr=self.learning_rate)
         self.loss_function = nn.MSELoss()
 
     def train_step(self, states, actions, next_states, rewards, game_overs):
@@ -139,6 +143,8 @@ class Environment():
         Trains the net using the parameters set.
         '''
         scores = []
+        epsilon_log = []
+        return_log = []
         epochs = range(self.epochs)
         for epoch in epochs:
             # The model plays a game
@@ -154,15 +160,26 @@ class Environment():
 
                 self.memory.append((state, action, next_state, reward, game_over))
 
+            # Logging and resetting for a new epoch
             scores.append(self.game.score)
             print(f"Epoch: {epoch}, Score: {self.game.score}")
-            self.game.reset()
+            return_log.append(self.game.score)
+            epsilon_log.append(self.epsilon)
             self.epsilon *= self.epsilon_decay_rate # Updating epsilon
+            self.game.reset()
             self.train_batch() # When a game ends, train the net on a subset of all available data (all prior games).
 
         save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
         torch.save(self.net.state_dict(), save_path)
         print(f"Trained model {self.model_name} and saved to PATH: {save_path}")
+
+        save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
+        df = pd.DataFrame({'epoch': epochs, 'return': return_log, 'epsilon': epsilon_log,
+                           'batch_size': [self.batch_size]*len(epochs), 'learning_rate': [self.learning_rate]*len(epochs),
+                           'discount_rate': [self.discount_rate]*len(epochs), 'epsilon_decay_rate': [self.epsilon_decay_rate]*len(epochs),
+                           'hidden_layers': [len(self.hidden_shape)]*len(epochs), 'mean_layer_width': [np.mean(self.hidden_shape)]*len(epochs)})
+        df.to_pickle(save_path)
+        print(f"Log written to PATH: {save_path}")
 
     def play_trained_model(self, model_path: os.PathLike) -> None:
         '''
@@ -183,9 +200,9 @@ class Environment():
             
 if __name__=="__main__":
     ### Train a model ###
-    # env = Environment(model_name="Mark", input_size=11, hidden_size=[250], output_size=3, epochs=200,
-    #                   batch_size=1000, learning_rate=0.002, discount_rate=0.9, epsilon_decay_rate=0.98)
-    # env.run_training()
+    env = Environment(model_name="Mark", input_size=11, hidden_shape=[250], output_size=3, epochs=200,
+                       batch_size=1000, learning_rate=0.002, discount_rate=0.9, epsilon_decay_rate=0.98)
+    env.run_training()
 
     ### Run a trained model ###
     env_trained = Environment(fps=20, show_gui=True, loaded_model=True)
