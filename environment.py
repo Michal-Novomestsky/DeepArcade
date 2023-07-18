@@ -5,7 +5,7 @@ import random
 import numpy as np
 import os
 import pandas as pd
-import seaborn as sns
+import time
 
 from Models.neural_net import *
 from Games.snake_game import SnakeGameAI
@@ -146,13 +146,15 @@ class Environment():
         epsilon_log = []
         return_log = []
         epochs = range(self.epochs)
+
+        t0 = time.perf_counter()
         for epoch in epochs:
             # The model plays a game
             game_over = False
             while not game_over:
                 state = self.game.get_state()
                 action = self.get_action(state)
-                game_over, _, reward = self.game.play_step(action)
+                game_over, reward = self.game.play_step(action)
                 next_state = self.game.get_state()
 
                 # Training on a single timestep
@@ -168,10 +170,11 @@ class Environment():
             self.epsilon *= self.epsilon_decay_rate # Updating epsilon
             self.game.reset()
             self.train_batch() # When a game ends, train the net on a subset of all available data (all prior games).
+        t1 = time.perf_counter()
 
         save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
         torch.save(self.net.state_dict(), save_path)
-        print(f"Trained model {self.model_name} and saved to PATH: {save_path}")
+        print(f"Trained model {self.model_name} in {round((t1-t0)/60, 1)}min. Saved to PATH: {save_path}")
 
         save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
         df = pd.DataFrame({'epoch': epochs, 'return': return_log, 'epsilon': epsilon_log,
@@ -194,16 +197,11 @@ class Environment():
         while not game_over:
             state = self.game.get_state()
             action = self.get_action(state)
-            game_over, _, _ = self.game.play_step(action)
+            game_over, _ = self.game.play_step(action)
 
         print(f'Final Score: {self.game.score}')
             
 if __name__=="__main__":
-    ### Train a model ###
-    env = Environment(model_name="Mark", input_size=11, hidden_shape=[250], output_size=3, epochs=200,
-                       batch_size=1000, learning_rate=0.002, discount_rate=0.9, epsilon_decay_rate=0.98)
-    env.run_training()
-
     ### Run a trained model ###
     env_trained = Environment(fps=20, show_gui=True, loaded_model=True)
     env_trained.play_trained_model(os.path.join("Outputs", "Trained Models", "Mark.pth"))

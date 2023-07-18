@@ -94,7 +94,7 @@ class SnakeGame:
         if self._is_collision():
             reward = -10
             game_over=True
-            return game_over,self.score, reward
+            return game_over, reward
         # 4. Place new Food or just move
         if self.head == self.food:
             self.score+=1
@@ -108,7 +108,7 @@ class SnakeGame:
             self.clock.tick(self.fps)
         # 6. Return game Over and Display Score
         
-        return game_over, self.score, reward
+        return game_over, reward
 
     def _update_ui(self) -> None:
         self.display.fill(BLACK)
