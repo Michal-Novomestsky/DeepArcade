@@ -10,6 +10,20 @@ import time
 from Models.neural_net import *
 from Games.snake_game import SnakeGameAI
 
+def write_message(message, filename: os.PathLike, writemode='a'):
+    """
+    Writes a message to both the terminal and the output file at dir.
+
+    :param message: Message to print. Can be any printable datatype.
+    :param dir: (os.PathLike) Path to the output file.
+    :param writemode: (str) Default IO write method (e.g. 'a' for append, 'w' for write, etc.).
+    """
+    dir = os.path.join(os.getcwd(), filename)
+
+    print(message)
+    with open(dir, writemode) as f:
+        f.write(message + '\n')
+
 class Environment():
     def __init__(self, model_name=None, input_size=11, hidden_shape=[250], output_size=3, epochs=100,
                  batch_size=1000, learning_rate=0.001, discount_rate=0.9, epsilon_decay_rate=0.98,
@@ -54,12 +68,12 @@ class Environment():
         # Enabling GPU functionality if available
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            print(f'CUDA available. Running on device/s:')
+            write_message(f'CUDA available. Running on device/s:', filename='training_log.txt', writemode='w')
             for core in range(torch.cuda.device_count()):
-                print(f'{torch.cuda.get_device_name(core)}')
+                write_message(f'{torch.cuda.get_device_name(core)}', filename='training_log.txt')
         else:
             self.device = torch.device('cpu')
-            print('CUDA unavailable. Switing to CPU instead.')
+            write_message('CUDA unavailable. Switing to CPU instead.', filename='training_log.txt')
 
         # Generating the net and the game to be played
         self.net = LinearQNet(input_size, hidden_shape, output_size, self.device)
@@ -157,7 +171,7 @@ class Environment():
         return_log = []
         epochs = range(self.epochs)
 
-        print("Training started.")
+        write_message("Training started.", filename='training_log.txt')
 
         t0 = time.perf_counter()
         for epoch in epochs:
@@ -185,7 +199,7 @@ class Environment():
 
         save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
         torch.save(self.net.state_dict(), save_path)
-        print(f"Trained model {self.model_name} in {round((t1-t0)/60, 1)}min. Saved to PATH: {save_path}")
+        write_message(f"Trained model {self.model_name} in {round((t1-t0)/60, 1)}min. Saved to PATH: {save_path}", filename='training_log.txt')
 
         save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
         df = pd.DataFrame({'epoch': epochs, 'return': return_log, 'epsilon': epsilon_log,
@@ -193,7 +207,7 @@ class Environment():
                            'discount_rate': [self.discount_rate]*len(epochs), 'epsilon_decay_rate': [self.epsilon_decay_rate]*len(epochs),
                            'hidden_layers': [len(self.hidden_shape)]*len(epochs), 'mean_layer_width': [np.mean(self.hidden_shape)]*len(epochs)})
         df.to_pickle(save_path)
-        print(f"Log written to PATH: {save_path}")
+        write_message(f"Log written to PATH: {save_path}", filename='training_log.txt')
 
     def play_trained_model(self, model_path: os.PathLike) -> None:
         '''
