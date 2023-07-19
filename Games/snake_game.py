@@ -146,9 +146,9 @@ class SnakeGame:
     def run(self) -> None:
         game_over = False
         while not game_over:
-            game_over, score, _ = self.play_step()
+            game_over, _ = self.play_step()
 
-        print(f'Final Score: {score}')
+        print(f'Final Score: {self.score}')
         pygame.quit()
 
 class SnakeGameAI(SnakeGame):

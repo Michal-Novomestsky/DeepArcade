@@ -10,7 +10,7 @@ class LinearQNet(nn.Module):
     :param hidden_shape: (list[int]) The ith element describes the amount of neurons the ith hidden layer contains.
     :param output_size: (int) Amount of output parameters returned.
     '''
-    def __init__(self, input_size: int, hidden_shape: list, output_size: int) -> None:
+    def __init__(self, input_size: int, hidden_shape: list, output_size: int, cuda_device=torch.device('cpu')) -> None:
         super().__init__() 
 
         # Making a linear net of arbitrarily many hidden layers.
@@ -18,6 +18,8 @@ class LinearQNet(nn.Module):
         for i in range(len(hidden_shape) - 1):
             self.net.append(nn.Linear(hidden_shape[i], hidden_shape[i + 1]))
         self.net.append(nn.Linear(hidden_shape[-1], output_size))
+
+        self.net.to(cuda_device)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         '''
