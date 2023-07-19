@@ -182,6 +182,13 @@ class Environment():
         self.train_step(states, actions, next_states, rewards, dones)
 
     def training_process(self, episodes, multiprocessing=False):
+        '''
+        Runs an instance of training.
+
+        :param episodes: (int) The amount of episodes/games to run.
+        :param multiprocessing: (bool) Set to True if using multiprocessing.
+        :return: (None|list) If multiprocessing is False, returns a collection of lists for logging.
+        '''
         if not multiprocessing:
             epsilon_log = []
             return_log = []
@@ -218,7 +225,7 @@ class Environment():
         if not multiprocessing:
             return return_log, epsilon_log, time_log
 
-    def run_training(self):
+    def run_training(self) -> None:
         '''
         Trains the net using the parameters set.
         '''
