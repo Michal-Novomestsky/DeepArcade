@@ -20,7 +20,6 @@ class LinearQNet(nn.Module):
         self.net.append(nn.Linear(hidden_shape[-1], output_size))
 
         self.net.to(cuda_device)
-        self.net.share_memory()
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         '''
