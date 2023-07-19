@@ -238,12 +238,12 @@ class Environment():
         write_message(f"Trained model {self.model_name} in {round((t1-t0)/60, 1)}min. Saved to PATH: {save_path}", filename='training_log.txt')
 
         if not self.multiprocessing:
-            save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
+            save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.csv")
             df = pd.DataFrame({'return': return_log, 'epsilon': epsilon_log, 'time': time_log,
                             'batch_size': [self.batch_size]*self.epochs, 'learning_rate': [self.learning_rate]*self.epochs,
                             'discount_rate': [self.discount_rate]*self.epochs, 'epsilon_decay_rate': [self.epsilon_decay_rate]*self.epochs,
                             'hidden_layers': [len(self.hidden_shape)]*self.epochs, 'mean_layer_width': [np.mean(self.hidden_shape)]*self.epochs})
-            df.to_pickle(save_path)
+            df.to_csv(save_path)
             write_message(f"Log written to PATH: {save_path}", filename='training_log.txt')
 
     def play_trained_model(self, model_path: os.PathLike) -> None:
@@ -266,4 +266,4 @@ class Environment():
 if __name__=="__main__":
     ### Run a trained model ###
     env_trained = Environment(fps=20, show_gui=True, loaded_model=True)
-    env_trained.play_trained_model(os.path.join("Outputs", "Trained Models", "Mark.pth"))
+    env_trained.play_trained_model(os.path.join("Outputs", "Trained Models", "1_layer_200_epoch_testrun.pth"))
