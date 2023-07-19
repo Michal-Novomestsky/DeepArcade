@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.multiprocessing as mp
 import random
 import numpy as np
 import os
@@ -27,7 +28,7 @@ def write_message(message, filename: os.PathLike, writemode='a'):
 class Environment():
     def __init__(self, model_name=None, input_size=11, hidden_shape=[250], output_size=3, epochs=100,
                  batch_size=1000, learning_rate=0.001, discount_rate=0.9, epsilon_decay_rate=0.98,
-                  fps=20, show_gui=False, loaded_model=False) -> None:
+                  multiprocessing=False, cpu_fraction=1, show_gui=False, fps=20, loaded_model=False) -> None:
         '''
         Environment for the neural net to interact with the game and train itself.
 
@@ -40,35 +41,46 @@ class Environment():
         :param learning_rate: (float) How steeply gradient descent acts.
         :param discount_rate: (float) How much to value future steps (needed for sum convergence).
         :param epsilon_decay_rate: (float) epsilon = epsilon*(eps_decay_rate^N), where N is the amount of games played.
-        :param fps: (int) GUI framerate.
+        :param multiprocessing: (bool) If True, enables parallelisation. Logging only available if this is False.
+        :param cpu_fraction: (float) % of available threads to use for multiprocessing.
         :param show_gui: (bool) If True, shows the GUI. Set to False to train quickly.
+        :param fps: (int) GUI framerate.
         :param loaded_model: (bool) If True, use a pre-trained model rather than actively training one now.
         '''
         if discount_rate <= 0 or discount_rate > 1:
             raise ValueError('discount_rate must be within (0,1].')
         if epsilon_decay_rate <= 0 or epsilon_decay_rate > 1:
             raise ValueError('epsilon_decay_rate must be within (0,1].')
+        if cpu_fraction <= 0 or cpu_fraction > 1:
+            raise ValueError('cpu_fraction must be within (0,1].')
         if model_name is None and not loaded_model:
             raise ValueError("If a pretrained model isn't being loaded, a name must be specified.")
 
         # Defining parameters
         self.model_name = model_name
         self.loaded_model = loaded_model
-        self.epochs = epochs
-        self.batch_size = batch_size
         self.hidden_shape = hidden_shape
         self.output_size = output_size
+        self.epochs = epochs
+        self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.discount_rate = discount_rate
         self.epsilon = 1
         self.epsilon_decay_rate = epsilon_decay_rate
+        self.multiprocessing = multiprocessing
+
+        if self.multiprocessing:
+            self.core_count = int(np.ceil(cpu_fraction*mp.cpu_count()))
+            write_message(f"Using {100*cpu_fraction}% of available cores -> {self.core_count}/{mp.cpu_count()}", filename='training_log.txt', writemode='w')
+        else:
+            write_message(f"Multiprocessing disabled, logging enabled.", filename='training_log.txt', writemode='w')
 
         self.memory = []
 
         # Enabling GPU functionality if available
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-            write_message(f'CUDA available. Running on device/s:', filename='training_log.txt', writemode='w')
+            write_message(f'CUDA available. Running on device/s:', filename='training_log.txt')
             for core in range(torch.cuda.device_count()):
                 write_message(f'{torch.cuda.get_device_name(core)}', filename='training_log.txt')
         else:
@@ -162,20 +174,14 @@ class Environment():
         states, actions, next_states, rewards, game_overs = zip(*random_sample)
         self.train_step(states, actions, next_states, rewards, game_overs)
 
-    def run_training(self):
-        '''
-        Trains the net using the parameters set.
-        '''
-        scores = []
-        epsilon_log = []
-        return_log = []
-        epochs = range(self.epochs)
+    def training_process(self, epochs, multiprocessing=False):
+        if not multiprocessing:
+            epsilon_log = []
+            return_log = []
+            time_log = []
 
-        write_message("Training started.", filename='training_log.txt')
-
-        t0 = time.perf_counter()
-        for epoch in epochs:
-            # The model plays a game
+        for _ in range(epochs):
+            t0 = time.perf_counter()
             game_over = False
             while not game_over:
                 state = self.game.get_state()
@@ -188,26 +194,57 @@ class Environment():
 
                 self.memory.append((state, action, next_state, reward, game_over))
 
-            # Logging and resetting for a new epoch
-            scores.append(self.game.score)
-            return_log.append(self.game.score)
-            epsilon_log.append(self.epsilon)
-            self.epsilon *= self.epsilon_decay_rate # Updating epsilon
+            # Resetting for a new epoch
             self.game.reset()
             self.train_batch() # When a game ends, train the net on a subset of all available data (all prior games).
+            t1 = time.perf_counter()
+
+            # Logging stats
+            if not multiprocessing:
+                return_log.append(self.game.score)
+                epsilon_log.append(self.epsilon)
+                time_log.append(t1-t0)
+
+            self.epsilon *= self.epsilon_decay_rate # Updating epsilon 
+
+        if not multiprocessing:
+            return return_log, epsilon_log, time_log
+
+    def run_training(self):
+        '''
+        Trains the net using the parameters set.
+        '''
+
+        write_message("Training started.", filename='training_log.txt')
+
+        t0 = time.perf_counter()
+        processes = []
+
+        if self.multiprocessing:
+            for _ in range(self.core_count):
+                p = mp.Process(target=self.training_process, args=(self.epochs//self.core_count, True))
+                p.start()
+                processes.append(p)
+            for p in processes:
+                p.join()
+
+        else:
+            return_log, epsilon_log, time_log = self.training_process(self.epochs)
+
         t1 = time.perf_counter()
 
         save_path = os.path.join("Outputs", "Trained Models", f"{self.model_name}.pth")
         torch.save(self.net.state_dict(), save_path)
         write_message(f"Trained model {self.model_name} in {round((t1-t0)/60, 1)}min. Saved to PATH: {save_path}", filename='training_log.txt')
 
-        save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
-        df = pd.DataFrame({'epoch': epochs, 'return': return_log, 'epsilon': epsilon_log,
-                           'batch_size': [self.batch_size]*len(epochs), 'learning_rate': [self.learning_rate]*len(epochs),
-                           'discount_rate': [self.discount_rate]*len(epochs), 'epsilon_decay_rate': [self.epsilon_decay_rate]*len(epochs),
-                           'hidden_layers': [len(self.hidden_shape)]*len(epochs), 'mean_layer_width': [np.mean(self.hidden_shape)]*len(epochs)})
-        df.to_pickle(save_path)
-        write_message(f"Log written to PATH: {save_path}", filename='training_log.txt')
+        if not self.multiprocessing:
+            save_path = os.path.join("Outputs", "Logs", f"{self.model_name}.pkl")
+            df = pd.DataFrame({'return': return_log, 'epsilon': epsilon_log, 'time': time_log,
+                            'batch_size': [self.batch_size]*self.epochs, 'learning_rate': [self.learning_rate]*self.epochs,
+                            'discount_rate': [self.discount_rate]*self.epochs, 'epsilon_decay_rate': [self.epsilon_decay_rate]*self.epochs,
+                            'hidden_layers': [len(self.hidden_shape)]*self.epochs, 'mean_layer_width': [np.mean(self.hidden_shape)]*self.epochs})
+            df.to_pickle(save_path)
+            write_message(f"Log written to PATH: {save_path}", filename='training_log.txt')
 
     def play_trained_model(self, model_path: os.PathLike) -> None:
         '''

@@ -13,8 +13,11 @@ if __name__=='__main__':
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Rate of gradient descent.')
     parser.add_argument('--discount_rate', type=float, default=0.9, help='Extent to which future states should be valued (mainly just a trick to let the return sum converge)')
     parser.add_argument('--epsilon_decay_rate', type=float, default=0.98, help='epsilon(N) = epsilon(0)*(decay_rate^N), where N is the amount of completed epochs/games.')
+    parser.add_argument('--multiprocessing', type=bool, default=False, help='If True, enables parallelisation. Logging only available if this is False.')
+    parser.add_argument('--cpu_fraction', type=float, default=1, help='% of available threads to use for multiprocessing.')
     args = parser.parse_args()
 
     env = Environment(args.model_name, args.input_size, args.hidden_shape, args.output_size, args.epochs,
-                      args.batch_size, args.learning_rate, args.discount_rate, args.epsilon_decay_rate)
+                      args.batch_size, args.learning_rate, args.discount_rate, args.epsilon_decay_rate,
+                      args.multiprocessing, args.cpu_fraction)
     env.run_training()
