@@ -7,7 +7,7 @@ from enum import Enum
 from collections import namedtuple
 
 pygame.init()
-font = pygame.font.Font(os.path.join('Resources','arial.ttf'), 25)
+font = pygame.font.Font(os.path.join(os.getcwd(), 'Resources','arial.ttf'), 25)
 #os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
 # SOURCE: https://github.com/vedantgoswami/SnakeGameAI
