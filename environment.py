@@ -77,6 +77,11 @@ class Environment():
         self.multiprocessing = multiprocessing
 
         if self.multiprocessing:
+            try:
+                mp.set_start_method('spawn')
+            except RuntimeError:
+                pass
+
             self.core_count = int(np.ceil(cpu_fraction*mp.cpu_count()))
             write_message(f"Using {100*cpu_fraction}% of available cores -> {self.core_count}/{mp.cpu_count()}", filename='training_log.txt', writemode='w')
         else:
@@ -266,7 +271,7 @@ class Environment():
 
         :param model_path: (os.PathLike) Path to the trained model.
         '''
-        self.net.load_state_dict(torch.load(model_path))
+        self.net.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
         self.net.eval()
 
         done = False
@@ -284,5 +289,5 @@ if __name__=="__main__":
     args = parse.parse_args()
 
     ### Run a trained model ###
-    env_trained = Environment(fps=args.fps, show_gui=True, loaded_model=True)
+    env_trained = Environment(fps=args.fps, show_gui=True, loaded_model=True, hidden_shape=[250, 250])
     env_trained.play_trained_model(args.model_path)
